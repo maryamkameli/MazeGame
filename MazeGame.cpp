@@ -23,7 +23,6 @@
 
 using namespace std;
 
-
 struct Map {
     int width, height;
     vector<vector<char>> grid;
@@ -67,11 +66,11 @@ struct Model {
     int numVertices;
 };
 
-
 int screen_width = 800;
 int screen_height = 600;
 char window_title[] = "3D Maze Game";
 float avg_render_time = 0;
+
 
 const GLchar* vertexSource =
     "#version 150 core\n"
@@ -125,10 +124,9 @@ const GLchar* fragmentSource =
     "   outColor = vec4(result, 1.0);"
     "}";
 
-// texture for walls
 GLuint loadBMP(const char* filepath) {
     FILE* file = fopen(filepath, "rb");
-
+    
     unsigned char header[54];
     fread(header, 1, 54, file);
     
@@ -140,12 +138,12 @@ GLuint loadBMP(const char* filepath) {
     fread(data, 1, imageSize, file);
     fclose(file);
     
-    // // BGR to RGB
-    // for (int i = 0; i < imageSize; i += 3) {
-    //     unsigned char tmp = data[i];
-    //     data[i] = data[i + 2];
-    //     data[i + 2] = tmp;
-    // }
+    // BGR to RGB for texture wall
+    for (int i = 0; i < imageSize; i += 3) {
+        unsigned char tmp = data[i];
+        data[i] = data[i + 2];
+        data[i + 2] = tmp;
+    }
     
     GLuint textureID;
     glGenTextures(1, &textureID);
@@ -175,7 +173,7 @@ Model loadModel(const char* filepath, GLuint shaderProgram) {
     file.close();
     
     model.numVertices = numFloats / 8;
-    
+
     glGenVertexArrays(1, &model.vao);
     glBindVertexArray(model.vao);
     
@@ -206,12 +204,11 @@ Map loadMap(const string& filename) {
     Map map;
     ifstream file(filename);
     
-    
     file >> map.width >> map.height;
     
     map.grid.resize(map.height);
     string line;
-    getline(file, line); 
+    getline(file, line); // consume newline
     
     for (int y = 0; y < map.height; y++) {
         getline(file, line);
@@ -247,6 +244,7 @@ glm::vec3 getKeyColor(char keyLetter) {
     }
 }
 
+
 bool checkCollision(const Map& map, glm::vec3 pos, const set<char>& keys) {
     // Check center position
     int gridX = (int)(pos.x / 2.0f + 0.5f);
@@ -266,6 +264,7 @@ bool checkCollision(const Map& map, glm::vec3 pos, const set<char>& keys) {
         }
     }
     
+    // Check collision in a small radius around player 
     float radius = 0.3f;
     float cellSize = 2.0f;
     
@@ -376,6 +375,9 @@ void renderDoor(GLuint shaderProgram, const Model& cubeModel, glm::mat4 baseMode
 }
 
 int main(int argc, char *argv[]){
+    // map file is the 2nd argument
+    string mapFile = argv[1]; 
+
     SDL_Init(SDL_INIT_VIDEO);
     
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -390,15 +392,10 @@ int main(int argc, char *argv[]){
     SDL_SetRelativeMouseMode(SDL_TRUE);
     
     if (!gladLoadGLLoader(SDL_GL_GetProcAddress)){
-        printf("ERROR: Failed to initialize OpenGL context.\n");
         return -1;
     }
     
-    printf("\nOpenGL loaded\n");
-    printf("Vendor:   %s\n", glGetString(GL_VENDOR));
-    printf("Renderer: %s\n", glGetString(GL_RENDERER));
-    printf("Version:  %s\n\n", glGetString(GL_VERSION));
-    
+    // Compile shaders
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexSource, NULL);
     glCompileShader(vertexShader);
@@ -422,8 +419,8 @@ int main(int argc, char *argv[]){
     // Load texture
     GLuint wallTexture = loadBMP("text.bmp");
     
-    // Load map
-    Map map = loadMap("map1.txt");
+    // Load map from argument or default
+    Map map = loadMap(mapFile);
     Camera camera(map.startPos);
     set<char> collectedKeys;
     
@@ -433,11 +430,9 @@ int main(int argc, char *argv[]){
     bool quit = false;
     float lastTime = SDL_GetTicks() / 1000.0f;
     
-    printf("\n=== CONTROLS ===\n");
     printf("WASD: Move\n");
     printf("Mouse: Look around\n");
     printf("ESC: Exit\n");
-    printf("================\n\n");
     
     while (!quit){
         float t_start = SDL_GetTicks();
@@ -475,7 +470,7 @@ int main(int argc, char *argv[]){
             checkKeyPickup(map, camera.position, collectedKeys);
             
             if (checkWin(map, camera.position)) {
-                printf("\n=== YOU WIN! ===\n");
+                printf("\n YOU WIN! \n");
                 quit = true;
             }
         }
